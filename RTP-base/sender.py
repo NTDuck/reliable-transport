@@ -1,6 +1,8 @@
 import argparse
+import logging
 import socket
 import sys
+import time
 from typing import Any
 
 from utils0 import *
@@ -26,6 +28,18 @@ def sender(receiver_ip, receiver_port, window_size, msg: bytes | Any = sys.stdin
 
     pkt = Packet(header=Packet.Header(type=Packet.Header.Type.START, seq_num=0, length=0))
     send(skt, pkt)
+
+    is_pkt_acked = False
+    timestamp = time.monotonic_ns()
+
+    while not is_pkt_acked and time.monotonic_ns() - timestamp <= SOCKET_TIMEOUT:
+        pkt = receive(skt)
+        pkt_header = pkt.header
+
+        if pkt_header.type == Packet.Header.Type.ACK and pkt_header.seq_num == 1:
+            is_pkt_acked = True
+            logging.info("START packet ACK-ed")
+            break
 
 
 def main():

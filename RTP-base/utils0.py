@@ -2,7 +2,7 @@ from typing import Optional
 from utils import *
 
 
-SOCKET_TIMEOUT: float = 0.5
+SOCKET_TIMEOUT: int = 500
 BUFFER_SIZE: int = 2048
 
 
