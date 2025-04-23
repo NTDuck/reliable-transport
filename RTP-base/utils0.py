@@ -16,7 +16,6 @@ class Packet:
 
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
-            self.checksum = compute_checksum(self)
 
     __UDP_HEADER_SIZE: int = 8
     __IP_HEADER_SIZE: int = 20
@@ -28,6 +27,8 @@ class Packet:
         if bytes_:
             self.bytes_ = bytes_
         else:
+            header.checksum = compute_checksum(header)
+            data = data or b""
             self.bytes_ = bytes(header / data)
 
     @property
