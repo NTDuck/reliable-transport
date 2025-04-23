@@ -1,11 +1,12 @@
 import argparse
 import socket
+import sys
+from typing import Any
 
-from utils import *
 from utils0 import *
 
 
-def sender(receiver_ip, receiver_port, window_size):
+def sender(receiver_ip, receiver_port, window_size, msg: bytes | Any = sys.stdin.buffer.read()):
     """TODO: Open socket and send message from sys.stdin."""
 
     def make_socket() -> socket.socket:
@@ -13,20 +14,17 @@ def sender(receiver_ip, receiver_port, window_size):
         skt.settimeout(SOCKET_TIMEOUT)
         return skt
 
-    def send(skt: socket.socket, pkt: PacketHeader) -> None:
+    def send(skt: socket.socket, pkt: Packet) -> None:
         skt.sendto(bytes(pkt), (receiver_ip, receiver_port))
 
-    def receive(skt: socket.socket, bufsize: int = 2048) -> Packet:
-        bytes = skt.recvfrom(bufsize=bufsize)
-        pkt = Packet.from_bytes(bytes)
+    def receive(skt: socket.socket, bufsize: int = BUFFER_SIZE) -> Packet:
+        bytes_ = skt.recvfrom(bufsize=bufsize)
+        pkt = Packet(bytes_=bytes_)
         return pkt
 
     skt = make_socket()
 
-    pkt_header = PacketHeader(type=2, seq_num=10, length=14)
-    pkt_header.checksum = compute_checksum(pkt_header / "Hello, world!\n")
-    pkt = pkt_header / "Hello, world!\n"
-    
+    pkt = Packet(header=Packet.Header(type=Packet.Header.Type.START, seq_num=0, length=0))
     send(skt, pkt)
 
 

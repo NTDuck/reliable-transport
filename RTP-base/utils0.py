@@ -3,37 +3,40 @@ from utils import *
 
 
 SOCKET_TIMEOUT: float = 0.5
-
-UDP_HEADER_SIZE: int = 8
-IP_HEADER_SIZE: int = 20
-ETHERNET_FRAME_SIZE: int = 1500
-PACKET_HEADER_SIZE: int = 16
-PACKET_DATA_SIZE: int = ETHERNET_FRAME_SIZE - UDP_HEADER_SIZE - IP_HEADER_SIZE - PACKET_HEADER_SIZE
-
-PACKET_HEADER_TYPE_START: int = 0
-PACKET_HEADER_TYPE_END: int = 1
-PACKET_HEADER_TYPE_DATA: int = 2
-PACKET_HEADER_TYPE_ACK: int = 3
+BUFFER_SIZE: int = 2048
 
 
 class Packet:
-    def __init__(self, header: PacketHeader, data: Optional[bytes] = None):
-        data = data or b""
-        self._bytes = bytes(header / data)
+    class Header(PacketHeader):
+        class Type:
+            START: int = 0
+            END: int = 1
+            DATA: int = 2
+            ACK: int = 3
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.checksum = compute_checksum(self)
+
+    __UDP_HEADER_SIZE: int = 8
+    __IP_HEADER_SIZE: int = 20
+    __ETHERNET_FRAME_SIZE: int = 1500
+    __PACKET_HEADER_SIZE: int = 16
+    PACKET_DATA_SIZE: int = __ETHERNET_FRAME_SIZE - __UDP_HEADER_SIZE - __IP_HEADER_SIZE - __PACKET_HEADER_SIZE
+
+    def __init__(self, header: Optional[Header] = None, data: Optional[bytes] = None, bytes_: Optional[bytes] = None):
+        if bytes_:
+            self.bytes_ = bytes_
+        else:
+            self.bytes_ = bytes(header / data)
 
     @property
-    def header(self) -> PacketHeader:
-        return PacketHeader(self._bytes[:PACKET_HEADER_SIZE])
+    def header(self) -> Header:
+        return PacketHeader(self.bytes_[:Packet.__PACKET_HEADER_SIZE])
 
     @property
     def data(self) -> bytes:
-        return self._bytes[PACKET_HEADER_SIZE:]
+        return self.bytes_[Packet.__PACKET_HEADER_SIZE:]
 
-    @classmethod
-    def from_bytes(cls, bytes: bytes) -> Packet:
-        pkt = cls.__new__(cls)
-        pkt._bytes = bytes
-        return pkt
-
-    def to_bytes(self) -> bytes:
-        return self._bytes
+    def __bytes__(self) -> bytes:
+        return self.bytes_
