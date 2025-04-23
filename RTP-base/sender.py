@@ -1,16 +1,33 @@
 import argparse
 import socket
 
-from utils import PacketHeader, compute_checksum
+from utils import *
+from utils0 import *
 
 
 def sender(receiver_ip, receiver_port, window_size):
     """TODO: Open socket and send message from sys.stdin."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    def make_socket() -> socket.socket:
+        skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        skt.settimeout(SOCKET_TIMEOUT)
+        return skt
+
+    def send(skt: socket.socket, pkt: PacketHeader) -> None:
+        skt.sendto(bytes(pkt), (receiver_ip, receiver_port))
+
+    def receive(skt: socket.socket, bufsize: int = 2048) -> Packet:
+        bytes = skt.recvfrom(bufsize=bufsize)
+        pkt = Packet.from_bytes(bytes)
+        return pkt
+
+    skt = make_socket()
+
     pkt_header = PacketHeader(type=2, seq_num=10, length=14)
     pkt_header.checksum = compute_checksum(pkt_header / "Hello, world!\n")
     pkt = pkt_header / "Hello, world!\n"
-    s.sendto(bytes(pkt), (receiver_ip, receiver_port))
+    
+    send(skt, pkt)
 
 
 def main():
@@ -27,7 +44,6 @@ def main():
     args = parser.parse_args()
 
     sender(args.receiver_ip, args.receiver_port, args.window_size)
-
 
 if __name__ == "__main__":
     main()
