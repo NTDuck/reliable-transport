@@ -1,28 +1,51 @@
 import argparse
+import logging
 import socket
 
-from utils import PacketHeader, compute_checksum
+import argparse
+import io
+import socket
+import sys
+from typing import Any
+
+from utils0 import *
 
 
 def receiver(receiver_ip, receiver_port, window_size):
     """TODO: Listen on socket and print received message to sys.stdout."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind((receiver_ip, receiver_port))
+
+    def make_socket() -> socket.socket:
+        skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        skt.bind((receiver_ip, receiver_port))
+        skt.settimeout(SOCKET_TIMEOUT)
+        return skt
+
+    def send(skt: socket.socket, addr: Any, pkt: Packet) -> None:
+        skt.sendto(bytes(pkt), addr)
+
+    def receive(skt: socket.socket, bufsize: int = SOCKET_BUFFER_SIZE) -> tuple[Packet, Any]:
+        bytes_, addr = skt.recvfrom(bufsize)
+        pkt = Packet(_bytes=bytes_)
+        return pkt, addr
+
+    skt = make_socket()
+
     while True:
-        # Receive packet; address includes both IP and port
-        pkt, address = s.recvfrom(2048)
+        try:
+            recv_pkt, addr = receive(skt)
+            
+            if recv_pkt.header.type == START and recv_pkt.header.seq_num == 0:
+                ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=recv_pkt.header.seq_num + 1, length=0))
+                send(skt, addr, pkt=ack_pkt)
+                logging.info("ACK of START packet transmitted")
+                break
 
-        # Extract header and payload
-        pkt_header = PacketHeader(pkt[:16])
-        msg = pkt[16 : 16 + pkt_header.length]
+        except socket.timeout:
+            pass
 
-        # Verity checksum
-        pkt_checksum = pkt_header.checksum
-        pkt_header.checksum = 0
-        computed_checksum = compute_checksum(pkt_header / msg)
-        if pkt_checksum != computed_checksum:
-            print("checksums not match")
-        print(msg)
+    data_pkts = []
+
+    skt.close()
 
 
 def main():
