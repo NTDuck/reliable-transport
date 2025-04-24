@@ -2,7 +2,6 @@ import argparse
 import logging
 import socket
 import sys
-import time
 
 from utils0 import *
 
@@ -12,7 +11,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
     def make_socket() -> socket.socket:
         skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        skt.setblocking(False)
+        skt.settimeout(SOCKET_TIMEOUT)
         return skt
 
     def send(skt: socket.socket, pkt: Packet) -> None:
@@ -31,14 +30,15 @@ def sender(receiver_ip, receiver_port, window_size):
     while not is_start_pkt_acked:
         send(skt, pkt=start_pkt)
         logging.info("START packet transmitted")
-
-        start_pkt_transmitted = time.monotonic()
-        while time.monotonic() - start_pkt_transmitted <= SOCKET_TIMEOUT:
+        
+        try:
             recv_pkt = receive(skt)
-            if recv_pkt.header.type == ACK and recv_pkt.header.seq_num == 1:
+            if recv_pkt.is_ack_of(start_pkt):
                 is_start_pkt_acked = True
                 logging.info("START packet ACK-ed")
-                break
+
+        except socket.timeout:
+            logging.info("START packet not ACK-ed, sender retransmits")
 
     msg = sys.stdin.buffer.read()
     msg_chunks = [msg[idx:idx + Packet.DATA_SIZE] \
@@ -46,13 +46,37 @@ def sender(receiver_ip, receiver_port, window_size):
     data_pkts = [Packet(header=PacketHeader(type=DATA, seq_num=idx, length=len(msg_chunk))) \
                  for idx, msg_chunk in enumerate(msg_chunks)]
     
-    ...
+    curr_idx = 0
+
+    while curr_idx < len(data_pkts):
+        idx_window = range(curr_idx, min(curr_idx + window_size), len(data_pkts))
     
+        for idx in idx_window:
+            send(skt, pkt=data_pkts[idx])
+
+        try:
+            recv_pkt = receive(skt)
+            if recv_pkt.header.type == ACK and recv_pkt.header.seq_num > curr_idx:
+                curr_idx = recv_pkt.header.seq_num
+                logging.info(f"DATA packets {idx_window.start} to {idx_window.end} \
+                             ACK-ed")
+
+        except socket.timeout:
+            logging.info(f"DATA packets {idx_window.start} to {idx_window.end} \
+                         not ACK-ed, sender retransmits")
+
     end_pkt = Packet(header=PacketHeader(type=END, seq_num=len(data_pkts), length=0))
+
     send(skt, end_pkt)
     logging.info("END packet transmitted")
 
-    ...
+    try:
+        recv_pkt = receive(skt)
+        if recv_pkt.is_ack_of(end_pkt):
+            logging.info("END packet ACK-ed, sender terminates")
+
+    except socket.timeout:
+        logging.info("END packet not ACK-ed, sender terminates")
 
     skt.close()
 

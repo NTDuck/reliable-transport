@@ -27,7 +27,7 @@ class Packet:
             else:
                 bytes_ = header
             header.checksum = compute_checksum(bytes_)
-            self.bytes_ = bytes_
+            self.bytes_ = bytes(bytes_)
 
     @property
     def header(self) -> PacketHeader:
@@ -39,3 +39,6 @@ class Packet:
 
     def __bytes__(self) -> bytes:
         return self.bytes_
+
+    def is_ack_of(self, pkt: Packet) -> bool:
+        return self.header.type == ACK and self.header.seq_num == pkt.header.seq_num + 1
