@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Self
 from utils import *
 
 
@@ -18,29 +18,35 @@ class Packet:
     __HEADER_SIZE: int = 16
     DATA_SIZE: int = __ETHERNET_FRAME_SIZE - __UDP_HEADER_SIZE - __IP_HEADER_SIZE - __HEADER_SIZE
 
-    def __init__(self, header: Optional[PacketHeader] = None, data: Optional[bytes] = None, _bytes: Optional[bytes] = None):
-        if _bytes:
-            self.bytes_ = _bytes
-        else:
-            if data:
-                _bytes = header / data
-            else:
-                _bytes = header
-            header.checksum = compute_checksum(_bytes)
-            self.bytes_ = bytes(_bytes)
+    def __init__(self, header: PacketHeader, data: Optional[bytes] = None):
+        self._header = header
+        self._data = data or b""
+
+        self._header.checksum = compute_checksum(bytes(self))
 
     @property
     def header(self) -> PacketHeader:
-        if self._header is None:
-            self._header = PacketHeader(self.bytes_[:__class__.__HEADER_SIZE])
         return self._header
 
     @property
     def data(self) -> bytes:
-        return self.bytes_[__class__.__HEADER_SIZE:__class__.__HEADER_SIZE + self.header.length]
+        return self._data
 
     def __bytes__(self) -> bytes:
-        return self.bytes_
+        return bytes(self._header / self._data)
 
-    # def is_ack_of(self, pkt: Packet) -> bool:
-    #     return self.header.type == ACK and self.header.seq_num == pkt.header.seq_num + 1
+    @staticmethod
+    def from_bytes(bytes_: bytes) -> Self:
+        this = __class__.__new__(__class__)
+        this.__init__(header=PacketHeader[:__class__.__HEADER_SIZE], \
+                      data=bytes_[__class__.__HEADER_SIZE:__class__.__HEADER_SIZE + this._header.length])
+        return this
+
+    def verify_checksum(self, fn=compute_checksum) -> bool:
+        persisted_checksum = self.header.checksum
+        self.header.checksum = 0
+
+        computed_checksum = fn(bytes(self))
+        self.header.checksum = persisted_checksum
+
+        return persisted_checksum == computed_checksum

@@ -19,7 +19,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
     def receive(skt: socket.socket, bufsize: int = SOCKET_BUFFER_SIZE) -> Packet:
         bytes_, _ = skt.recvfrom(bufsize)
-        pkt = Packet(_bytes=bytes_)
+        pkt = Packet.from_bytes(bytes_)
         return pkt
 
     skt = make_socket()
@@ -32,7 +32,8 @@ def sender(receiver_ip, receiver_port, window_size):
         
         try:
             recv_pkt = receive(skt)
-            if recv_pkt.header.type == ACK and recv_pkt.header.seq_num == start_pkt.header.seq_num + 1:
+            if recv_pkt.header.type == ACK \
+                and recv_pkt.header.seq_num == start_pkt.header.seq_num + 1:
                 logging.info("START packet ACK-ed")
                 break
 
@@ -40,10 +41,10 @@ def sender(receiver_ip, receiver_port, window_size):
             logging.info("START packet not ACK-ed, sender retransmits")
 
     msg = sys.stdin.buffer.read()
-    msg_chunks = [msg[idx:idx + Packet.DATA_SIZE] \
-                  for idx in range(0, len(msg), Packet.DATA_SIZE)]
-    data_pkts = [Packet(header=PacketHeader(type=DATA, seq_num=idx, length=len(msg_chunk))) \
-                 for idx, msg_chunk in enumerate(msg_chunks)]
+    msg_chunks = (msg[idx:idx + Packet.DATA_SIZE] \
+                  for idx in range(0, len(msg), Packet.DATA_SIZE))
+    data_pkts = (Packet(header=PacketHeader(type=DATA, seq_num=idx, length=len(msg_chunk))) \
+                 for idx, msg_chunk in enumerate(msg_chunks))
     
     curr_idx = 0
 
@@ -55,7 +56,9 @@ def sender(receiver_ip, receiver_port, window_size):
 
         try:
             recv_pkt = receive(skt)
-            if recv_pkt.header.type == ACK and recv_pkt.header.seq_num > curr_idx:
+            if recv_pkt.header.type == ACK \
+                and recv_pkt.header.seq_num > curr_idx \
+                and recv_pkt.header.seq_num < len(data_pkts):
                 curr_idx = recv_pkt.header.seq_num
                 logging.info(f"DATA packets {idx_window.start} to {idx_window.stop} ACK-ed")
 
@@ -79,7 +82,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
 
 def main():
-    logging.basicConfig(level = logging.INFO)
+    logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
     parser.add_argument(

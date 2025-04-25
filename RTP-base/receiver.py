@@ -25,7 +25,7 @@ def receiver(receiver_ip, receiver_port, window_size):
 
     def receive(skt: socket.socket, bufsize: int = SOCKET_BUFFER_SIZE) -> tuple[Packet, Any]:
         bytes_, addr = skt.recvfrom(bufsize)
-        pkt = Packet(_bytes=bytes_)
+        pkt = Packet.from_bytes(bytes_)
         return pkt, addr
 
     skt = make_socket()
@@ -43,7 +43,42 @@ def receiver(receiver_ip, receiver_port, window_size):
         except socket.timeout:
             pass
 
-    data_pkts = []
+    data_pkts: list[Packet] = []
+    expected_seq_num = 0
+
+    while True:
+        try:
+            recv_pkt, addr = receive(skt)
+
+            if not recv_pkt.verify_checksum():
+                logging.info("checksum mismatch, packet dropped")
+                continue
+
+            if recv_pkt.header.type == DATA:
+                if recv_pkt.header.seq_num < expected_seq_num:
+                    ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=expected_seq_num, length=0))
+                    send(skt, addr, pkt=ack_pkt)
+                    logging.info("ACK of DATA packet transmitted")
+                    # buffers out-of-order packets
+                    pass
+
+                elif recv_pkt.header.seq_num == expected_seq_num:
+                    # check for the highest sequence number (say M) of the in­order packets it has already received and send ACK with seq_num=M+1.
+
+                    pass
+
+                # drop all packets with seq_num greater than or equal to N + window_size to maintain a window_size window
+
+            elif recv_pkt.header.type == END:
+                ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=expected_seq_num + 1, length=0))
+                send(skt, addr, pkt=ack_pkt)
+                
+                break
+            
+        except socket.timeout:
+            pass
+
+    # write data to buffer here
 
     skt.close()
 
