@@ -27,18 +27,20 @@ def receiver(receiver_ip, receiver_port, window_size):
 
     skt = make_socket()
 
-    while True:
-        try:
-            recv_pkt, addr = receive(skt)
-            
-            if recv_pkt.header.type == START and recv_pkt.header.seq_num == 0:
-                ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=recv_pkt.header.seq_num + 1, length=0))
-                send(skt, addr, pkt=ack_pkt)
-                logging.info("ACK of START packet transmitted")
-                break
+    # while True:
+    try:
+        recv_pkt, addr = receive(skt)
 
-        except socket.timeout:
-            pass
+        logging.info(f"received start packet {recv_pkt.header.type}, {recv_pkt.header.seq_num}")
+        
+        if recv_pkt.header.type == START and recv_pkt.header.seq_num == 0:
+            ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=1, length=0))
+            send(skt, addr, pkt=ack_pkt)
+            logging.info("ACK of START packet transmitted")
+            # break
+
+    except socket.timeout:
+        pass
 
     buffered_data_pkts: list[Optional[Packet]] = []
     msg_stream = BytesIO()

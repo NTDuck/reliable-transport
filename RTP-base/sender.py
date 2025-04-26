@@ -41,10 +41,10 @@ def sender(receiver_ip, receiver_port, window_size):
             logging.info("START packet not ACK-ed, sender retransmits")
 
     msg = sys.stdin.buffer.read()
-    msg_chunks = (msg[idx:idx + Packet.DATA_SIZE] \
-                  for idx in range(0, len(msg), Packet.DATA_SIZE))
-    data_pkts = (Packet(header=PacketHeader(type=DATA, seq_num=idx, length=len(msg_chunk))) \
-                 for idx, msg_chunk in enumerate(msg_chunks))
+    msg_chunks = [msg[idx:idx + Packet.DATA_SIZE] \
+                  for idx in range(0, len(msg), Packet.DATA_SIZE)]
+    data_pkts = [Packet(header=PacketHeader(type=DATA, seq_num=idx, length=len(msg_chunk)), data=msg_chunk) \
+                 for idx, msg_chunk in enumerate(msg_chunks)]
     
     curr_idx = 0
 
@@ -53,6 +53,7 @@ def sender(receiver_ip, receiver_port, window_size):
     
         for idx in idx_window:
             send(skt, pkt=data_pkts[idx])
+            logging.info(f"DATA packet {idx} transmitted")
 
         try:
             recv_pkt = receive(skt)
