@@ -37,16 +37,16 @@ class Packet:
 
     @staticmethod
     def from_bytes(bytes_: bytes) -> Self:
-        this = __class__.__new__(__class__)
-        this.__init__(header=PacketHeader[:__class__.__HEADER_SIZE], \
-                      data=bytes_[__class__.__HEADER_SIZE:__class__.__HEADER_SIZE + this._header.length])
-        return this
+        header = PacketHeader(bytes_[:__class__.__HEADER_SIZE])
+        data = bytes_[__class__.__HEADER_SIZE:__class__.__HEADER_SIZE + header.length]
+
+        return Packet(header, data)
 
     def verify_checksum(self, fn=compute_checksum) -> bool:
-        persisted_checksum = self.header.checksum
-        self.header.checksum = 0
+        persisted_checksum = self._header.checksum
+        self._header.checksum = 0
 
         computed_checksum = fn(bytes(self))
-        self.header.checksum = persisted_checksum
+        self._header.checksum = persisted_checksum
 
         return persisted_checksum == computed_checksum
