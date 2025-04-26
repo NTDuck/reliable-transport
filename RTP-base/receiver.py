@@ -19,28 +19,28 @@ def receiver(receiver_ip, receiver_port, window_size):
 
     def send(skt: socket.socket, addr: Any, pkt: Packet) -> None:
         skt.sendto(bytes(pkt), addr)
+        logging.debug(f"sent PACKET ({pkt})")
 
     def receive(skt: socket.socket, bufsize: int = SOCKET_BUFFER_SIZE) -> tuple[Packet, Any]:
         bytes_, addr = skt.recvfrom(bufsize)
         pkt = Packet.from_bytes(bytes_)
+        logging.debug(f"recv PACKET ({pkt})")
         return pkt, addr
 
     skt = make_socket()
 
-    # while True:
-    try:
-        recv_pkt, addr = receive(skt)
+    while True:
+        try:
+            recv_pkt, addr = receive(skt)
 
-        logging.info(f"received start packet {recv_pkt.header.type}, {recv_pkt.header.seq_num}")
-        
-        if recv_pkt.header.type == START and recv_pkt.header.seq_num == 0:
-            ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=1, length=0))
-            send(skt, addr, pkt=ack_pkt)
-            logging.info("ACK of START packet transmitted")
-            # break
+            if recv_pkt.header.type == START and recv_pkt.header.seq_num == 0:
+                ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=1, length=0))
+                send(skt, addr, pkt=ack_pkt)
+                logging.info("ACK of START packet transmitted")
+                # break
 
-    except socket.timeout:
-        pass
+        except socket.timeout:
+            pass
 
     buffered_data_pkts: list[Optional[Packet]] = []
     msg_stream = BytesIO()
@@ -105,6 +105,8 @@ def receiver(receiver_ip, receiver_port, window_size):
 
 
 def main():
+    logging.basicConfig(level=logging.DEBUG, format="[RECV] %(message)s", filename=".log")
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "receiver_ip", help="The IP address of the host that receiver is running on"

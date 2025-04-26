@@ -16,10 +16,12 @@ def sender(receiver_ip, receiver_port, window_size):
 
     def send(skt: socket.socket, pkt: Packet) -> None:
         skt.sendto(bytes(pkt), (receiver_ip, receiver_port))
+        logging.debug(f"sent PACKET ({pkt})")
 
     def receive(skt: socket.socket, bufsize: int = SOCKET_BUFFER_SIZE) -> Packet:
         bytes_, _ = skt.recvfrom(bufsize)
         pkt = Packet.from_bytes(bytes_)
+        logging.debug(f"recv PACKET ({pkt})")
         return pkt
 
     skt = make_socket()
@@ -83,7 +85,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG, format="[SEND] %(message)s", filename=".log")
 
     parser = argparse.ArgumentParser()
     parser.add_argument(

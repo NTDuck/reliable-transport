@@ -34,6 +34,14 @@ class Packet:
 
     def __bytes__(self) -> bytes:
         return bytes(self._header / self._data)
+    
+    def __repr__(self) -> str:
+        return f"type={
+            "START" if self.header.type == START else
+            "END" if self.header.type == END else
+            "DATA" if self.header.type == DATA else
+            "ACK"
+        }, seq_num={self.header.seq_num}"
 
     @staticmethod
     def from_bytes(bytes_: bytes) -> Self:
