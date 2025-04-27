@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Self
 from utils import *
 
@@ -56,5 +57,7 @@ class Packet:
 
         computed_checksum = fn(bytes(self))
         self._header.checksum = persisted_checksum
+
+        logging.debug(f"Checksum mismatch: expected {computed_checksum}, found {persisted_checksum}")
 
         return persisted_checksum == computed_checksum

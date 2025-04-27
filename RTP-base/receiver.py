@@ -37,12 +37,13 @@ def receiver(receiver_ip, receiver_port, window_size):
                 ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=1, length=0))
                 send(skt, addr, pkt=ack_pkt)
                 logging.info("ACK of START packet transmitted")
-                # break
+                
+                break
 
         except socket.timeout:
             pass
 
-    buffered_data_pkts: list[Optional[Packet]] = []
+    data_pkts_by_seq_nums: dict[int, Packet] = {}
     msg_stream = BytesIO()
     expected_seq_num = 0
 
@@ -52,38 +53,39 @@ def receiver(receiver_ip, receiver_port, window_size):
         try:
             recv_pkt, addr = receive(skt)
 
-            if not recv_pkt.verify_checksum():
-                logging.info("checksum mismatch, packet dropped")
-                continue
+            # if not recv_pkt.verify_checksum():
+            #     logging.info("checksum mismatch, packet dropped")
+            #     continue
 
             if recv_pkt.header.type == DATA:
                 if recv_pkt.header.seq_num < expected_seq_num:
                     # already received, ignore
                     ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=expected_seq_num, length=0))
                     send(skt, addr, pkt=ack_pkt)
-                    logging.info("ACK of DATA packet (already received) transmitted")
+                    logging.info(f"ACK of DATA packet {recv_pkt.header.seq_num} (already received) transmitted")
 
                 elif recv_pkt.header.seq_num == expected_seq_num:
                     # check for the highest sequence number (say M) of the in­order packets it has already received and send ACK with seq_num=M+1.
 
                     # advance window stuff
-                    while buffered_data_pkts[expected_seq_num] is not None:
-                        msg_stream.write(buffered_data_pkts[expected_seq_num].data)
-                        buffered_data_pkts = None
+                    while expected_seq_num in data_pkts_by_seq_nums:
+                        data_pkt = data_pkts_by_seq_nums.pop(expected_seq_num)
+                        msg_stream.write(data_pkt.data)
                         expected_seq_num += 1
 
                     ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=expected_seq_num, length=0))
                     send(skt, addr, pkt=ack_pkt)
-                    logging.info("ACK of DATA packet (expected) transmitted")
+                    logging.info(f"ACK of DATA packet {recv_pkt.header.seq_num} (expected) transmitted")
 
                 elif recv_pkt.header.seq_num in seq_num_window:
                     # packet is out of order, buffer
-                    if buffered_data_pkts[recv_pkt.header.seq_num] is None:
-                        buffered_data_pkts[recv_pkt.header.seq_num] = recv_pkt
+
+                    if recv_pkt.header.seq_num not in data_pkts_by_seq_nums:
+                        data_pkts_by_seq_nums[recv_pkt.header.seq_num] = recv_pkt
 
                     ack_pkt = Packet(header=PacketHeader(type=ACK, seq_num=expected_seq_num, length=0))
                     send(skt, addr, pkt=ack_pkt)
-                    logging.info("ACK of DATA packet (out-of-order, within window) transmitted")
+                    logging.info(f"ACK of DATA packet {recv_pkt.header.seq_num} (out-of-order, within window) transmitted")
                     
                 # drop all packets with seq_num greater than or equal to N + window_size to maintain a window_size window
 
@@ -105,7 +107,7 @@ def receiver(receiver_ip, receiver_port, window_size):
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG, format="[RECV] %(message)s", filename=".log")
+    logging.basicConfig(level=logging.INFO, format="[RECV] %(message)s", filename=".log")
 
     parser = argparse.ArgumentParser()
     parser.add_argument(

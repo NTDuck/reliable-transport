@@ -55,7 +55,7 @@ def sender(receiver_ip, receiver_port, window_size):
     
         for idx in idx_window:
             send(skt, pkt=data_pkts[idx])
-            logging.info(f"DATA packet {idx} transmitted")
+        logging.info(f"DATA packets {idx_window.start} to {idx_window.stop} transmitted")
 
         try:
             recv_pkt = receive(skt)
@@ -85,7 +85,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG, format="[SEND] %(message)s", filename=".log")
+    logging.basicConfig(level=logging.INFO, format="[SEND] %(message)s", filename=".log")
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
